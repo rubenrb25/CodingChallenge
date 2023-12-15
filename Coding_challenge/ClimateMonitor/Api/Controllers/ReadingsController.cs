@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using ClimateMonitor.Services;
 using ClimateMonitor.Services.Models;
+using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
+using System.Net.Sockets;
 
 namespace ClimateMonitor.Api.Controllers;
 
@@ -19,7 +22,7 @@ public class ReadingsController : ControllerBase
         _alertService = alertService;
     }
 
-    /// <summary>
+     /// <summary>
     /// Evaluate a sensor readings from a device and return possible alerts.
     /// </summary>
     /// <remarks>
@@ -34,15 +37,22 @@ public class ReadingsController : ControllerBase
     /// <param name="deviceReadingRequest">Sensor information and extra metadata from device.</param>
     [HttpPost("evaluate")]
     public ActionResult<IEnumerable<Alert>> EvaluateReading(
-        string deviceSecret,
-        [FromBody] DeviceReadingRequest deviceReadingRequest)
+       [FromHeader(Name = "x-device-shared-secret")] string deviceSecret,
+       [FromBody] DeviceReadingRequest deviceReadingRequest)
     {
+
+        if (!ModelState.IsValid) 
+        {
+            return ValidationProblem(ModelState);
+        }
+
         if (!_secretValidator.ValidateDeviceSecret(deviceSecret))
         {
             return Problem(
                 detail: "Device secret is not within the valid range.",
                 statusCode: StatusCodes.Status401Unauthorized);
         }
+
 
         return Ok(_alertService.GetAlerts(deviceReadingRequest));
     }
